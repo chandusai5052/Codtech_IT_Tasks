@@ -1,0 +1,40 @@
+<html>
+<head>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 p-10">
+
+    <div class="max-w-md mx-auto bg-white p-4 rounded-xl shadow-lg">
+        <img id="mainImage" src="https://via.placeholder.com/600x600?text=Product+1" 
+             class="w-full rounded-lg mb-4 transition-all duration-300" alt="Product">
+
+        <div class="grid grid-cols-4 gap-2">
+            <img src="https://via.placeholder.com/150x150?text=Product+1" 
+                 class="thumb cursor-pointer border-2 border-blue-500 rounded-md" onclick="changeImage(this.src)">
+            <img src="https://via.placeholder.com/150x150?text=Product+2" 
+                 class="thumb cursor-pointer border-2 border-transparent rounded-md" onclick="changeImage(this.src)">
+            <img src="https://via.placeholder.com/150x150?text=Product+3" 
+                 class="thumb cursor-pointer border-2 border-transparent rounded-md" onclick="changeImage(this.src)">
+            <img src="https://via.placeholder.com/150x150?text=Product+4" 
+                 class="thumb cursor-pointer border-2 border-transparent rounded-md" onclick="changeImage(this.src)">
+        </div>
+    </div>
+
+    <script>
+        function changeImage(src) {
+            // Update main image
+            document.getElementById('mainImage').src = src;
+
+            // Update thumbnail borders
+            document.querySelectorAll('.thumb').forEach(thumb => {
+                thumb.classList.remove('border-blue-500');
+                thumb.classList.add('border-transparent');
+                if(thumb.src === src) {
+                    thumb.classList.remove('border-transparent');
+                    thumb.classList.add('border-blue-500');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
