@@ -1,0 +1,289 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClimateIQ // All-in-One Weather Dashboard</title>
+    <style>
+        /* CSS STYLING & CORE ARCHITECTURE */
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.25);
+            --text-color: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background 0.8s ease;
+            padding: 20px;
+        }
+
+        /* Ambient Dynamic Context Layouts */
+        .default-bg { background: linear-gradient(135deg, #2c3e50, #3498db); }
+        .warm-bg { background: linear-gradient(135deg, #e67e22, #f1c40f); }
+        .cold-bg { background: linear-gradient(135deg, #1abc9c, #34495e); }
+
+        .app-container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            padding: 30px;
+            border-radius: 24px;
+            width: 100%;
+            max-width: 450px;
+            color: var(--text-color);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 12px 18px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .search-box input::placeholder { 
+            color: rgba(255, 255, 255, 0.6); 
+        }
+
+        .search-box button {
+            padding: 12px 18px;
+            border: none;
+            background: #ffffff;
+            color: #2c3e50;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+
+        .search-box button:hover { 
+            opacity: 0.9; 
+        }
+
+        .current-weather {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .current-weather h1 { 
+            font-size: 2.2rem; 
+            font-weight: 500; 
+        }
+        
+        #weather-desc { 
+            font-weight: 300; 
+            text-transform: capitalize; 
+            margin-top: 5px; 
+            opacity: 0.8;
+        }
+
+        .main-temp-container {
+            font-size: 5.5rem;
+            font-weight: 700;
+            margin: 15px 0;
+        }
+        
+        .main-temp-container .unit { 
+            font-size: 2.5rem; 
+            font-weight: 300; 
+            vertical-align: super; 
+        }
+
+        .weather-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 15px 10px;
+            border-radius: 16px;
+            text-align: center;
+        }
+
+        .stat-card small { 
+            font-size: 0.65rem; 
+            letter-spacing: 1px; 
+            opacity: 0.7; 
+            display: block; 
+            margin-bottom: 5px; 
+        }
+        
+        .stat-card p { 
+            font-size: 1.1rem; 
+            font-weight: 600; 
+        }
+
+        .hidden { 
+            display: none !important; 
+        }
+        
+        .error-msg { 
+            text-align: center; 
+            color: #ff7675; 
+            background: rgba(0,0,0,0.2); 
+            padding: 12px; 
+            border-radius: 10px; 
+        }
+    </style>
+</head>
+<body class="default-bg">
+
+    <div class="app-container">
+        <header class="search-box">
+            <input type="text" id="city-input" placeholder="Enter city name..." autocomplete="off">
+            <button id="search-btn">Search</button>
+            <button id="geo-btn" title="Use current location">📍</button>
+        </header>
+
+        <main class="weather-dashboard hidden" id="weather-dashboard">
+            <section class="current-weather">
+                <h1 id="location-name">--</h1>
+                <p id="weather-desc">--</p>
+                <div class="main-temp-container">
+                    <span id="temperature">--</span><span class="unit">°C</span>
+                </div>
+            </section>
+
+            <section class="weather-stats">
+                <div class="stat-card">
+                    <small>HUMIDITY</small>
+                    <p id="humidity-val">--</p>
+                </div>
+                <div class="stat-card">
+                    <small>WIND SPEED</small>
+                    <p id="wind-val">--</p>
+                </div>
+                <div class="stat-card">
+                    <small>UV INDEX</small>
+                    <p id="uv-val">--</p>
+                </div>
+            </section>
+        </main>
+
+        <div id="error-message" class="error-msg hidden"></div>
+    </div>
+
+    <script>
+        // JAVASCRIPT LOGIC & TELEMETRY HANDLING
+        const GEO_CODELOOKUP_URL = "https://geocoding-api.open-meteo.com/v1/search";
+        const WEATHER_BASE_URL = "https://api.open-meteo.com/v1/forecast";
+
+        // DOM Node Cache
+        const cityInput = document.getElementById('city-input');
+        const searchBtn = document.getElementById('search-btn');
+        const geoBtn = document.getElementById('geo-btn');
+        const dashboard = document.getElementById('weather-dashboard');
+        const errorMsg = document.getElementById('error-message');
+
+        // Primary Application Events
+        searchBtn.addEventListener('click', () => handleSearch(cityInput.value.trim()));
+        cityInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSearch(cityInput.value.trim()); });
+        geoBtn.addEventListener('click', useDeviceLocation);
+
+        async function handleSearch(cityName) {
+            if (!cityName) return;
+            showError(null); 
+
+            try {
+                // 1. Geocoding Step: Translate textual city name to Lat/Long coordinates
+                const geoResponse = await fetch(`${GEO_CODELOOKUP_URL}?name=${encodeURIComponent(cityName)}&count=1&language=en&format=json`);
+                const geoData = await geoResponse.json();
+
+                if (!geoData.results || geoData.results.length === 0) {
+                    throw new Error("City matching credentials not found.");
+                }
+
+                const { latitude, longitude, name, country } = geoData.results[0];
+                fetchAndRenderWeatherData(latitude, longitude, `${name}, ${country}`);
+            } catch (err) {
+                showError(err.message);
+            }
+        }
+
+        function useDeviceLocation() {
+            if (!navigator.geolocation) return showError("Geolocation unsupported by this ecosystem.");
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    fetchAndRenderWeatherData(latitude, longitude, "Local Coordinates");
+                },
+                () => showError("Access to device location denied.")
+            );
+        }
+
+        async function fetchAndRenderWeatherData(lat, lon, locationLabel) {
+            try {
+                // 2. Weather Engine Step: Pull analytical data matrices
+                const url = `${WEATHER_BASE_URL}?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,is_day&daily=uv_index_max&timezone=auto`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                // 3. UI Generation Phase
+                document.getElementById('location-name').textContent = locationLabel;
+                
+                const currentTemp = Math.round(data.current.temperature_2m);
+                document.getElementById('temperature').textContent = currentTemp;
+                document.getElementById('humidity-val').textContent = `${data.current.relative_humidity_2m}%`;
+                document.getElementById('wind-val').textContent = `${data.current.wind_speed_10m} km/h`;
+                document.getElementById('uv-val').textContent = data.daily.uv_index_max[0];
+                
+                // Simple heuristic weather description
+                document.getElementById('weather-desc').textContent = data.current.is_day ? "Daylight Conditions" : "Nightfall Conditions";
+
+                // Dynamic background shifting based on temperature metric
+                updateDynamicBackground(currentTemp);
+
+                dashboard.classList.remove('hidden');
+            } catch (err) {
+                showError("Failed to fetch current meteorological telemetry.");
+            }
+        }
+
+        function updateDynamicBackground(temp) {
+            document.body.className = ''; // Reset ambient classes
+            if (temp >= 26) {
+                document.body.classList.add('warm-bg');
+            } else if (temp <= 12) {
+                document.body.classList.add('cold-bg');
+            } else {
+                document.body.classList.add('default-bg');
+            }
+        }
+
+        function showError(msg) {
+            if (msg) {
+                errorMsg.textContent = msg;
+                errorMsg.classList.remove('hidden');
+                dashboard.classList.add('hidden');
+            } else {
+                errorMsg.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
