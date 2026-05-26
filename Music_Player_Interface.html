@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PulseStream // Audio Player</title>
+    <style>
+        /* CSS RESET & VARS */
+        :root {
+            --bg-dark: #090d16;
+            --card-bg: rgba(22, 30, 49, 0.7);
+            --accent-glow: #a855f7;
+            --accent-sub: #c084fc;
+            --text-main: #f8fafc;
+            --text-muted: #64748b;
+            --track-bar: #334155;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            background: radial-gradient(circle at top right, #1e1b4b, var(--bg-dark) 70%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-main);
+            padding: 20px;
+        }
+
+        /* CONTAINER DESIGN */
+        .player-container {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            width: 100%;
+            max-width: 380px;
+            border-radius: 32px;
+            padding: 30px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        /* ARTWORK WRAPPER */
+        .artwork-area {
+            position: relative;
+            width: 240px;
+            height: 240px;
+            margin: 0 auto 30px;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(168, 85, 247, 0.2);
+            overflow: hidden;
+            transition: transform 0.4s ease;
+        }
+
+        .artwork-area img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        /* Spinning effect when audio is playing */
+        .playing .artwork-area {
+            transform: scale(1.03);
+            box-shadow: 0 20px 40px rgba(168, 85, 247, 0.35);
+        }
+
+        /* TRACK LABELS */
+        .track-details {
+            margin-bottom: 25px;
+        }
+
+        .track-details h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .track-details p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        /* PROGRESS TRACKER SECTION */
+        .progress-block {
+            margin-bottom: 25px;
+        }
+
+        .slider-container {
+            position: relative;
+            width: 100%;
+            height: 6px;
+            background: var(--track-bar);
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent-sub), var(--accent-glow));
+            border-radius: 10px;
+            position: relative;
+        }
+
+        .time-stamps {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* HARDWARE CONTROLS BAR */
+        .controls-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 24px;
+            margin-bottom: 25px;
+        }
+
+        .control-btn {
+            background: none;
+            border: none;
+            color: var(--text-main);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s, transform 0.2s;
+        }
+
+        .control-btn:hover {
+            color: var(--accent-sub);
+        }
+
+        .control-btn.secondary {
+            font-size: 1.5rem;
+            color: #94a3b8;
+        }
+
+        .control-btn.main-toggle {
+            width: 64px;
+            height: 64px;
+            background: #ffffff;
+            color: #0f172a;
+            border-radius: 50%;
+            font-size: 1.3rem;
+            box-shadow: 0 8px 20px rgba(255, 255, 255, 0.15);
+        }
+
+        .control-btn.main-toggle:hover {
+            transform: scale(1.05);
+            color: #000;
+            background: #f8fafc;
+        }
+
+        /* VOLUME TRACK SYSTEM */
+        .volume-panel {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 0 20px;
+        }
+
+        .volume-icon {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            width: 20px;
+            text-align: left;
+        }
+
+        .volume-slider {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--track-bar);
+            border-radius: 10px;
+            outline: none;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--text-main);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .volume-slider::-webkit-slider-thumb:hover {
+            background: var(--accent-sub);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="player-container" id="player-frame">
+        
+        <div class="artwork-area">
+            <img src="" alt="Album Artwork" id="album-art">
+        </div>
+
+        <div class="track-details">
+            <h2 id="song-title">Song Title</h2>
+            <p id="artist-name">Artist Name</p>
+        </div>
+
+        <audio id="audio-engine"></audio>
+
+        <div class="progress-block">
+            <div class="slider-container" id="timeline-container">
+                <div class="progress-fill" id="progress-bar"></div>
+            </div>
+            <div class="time-stamps">
+                <span id="current-time">0:00</span>
+                <span id="total-duration">0:00</span>
+            </div>
+        </div>
+
+        <div class="controls-row">
+            <button class="control-btn secondary" id="prev-btn" title="Previous Track">⏮</button>
+            <button class="control-btn main-toggle" id="play-btn" title="Play/Pause">▶</button>
+            <button class="control-btn secondary" id="next-btn" title="Next Track">⏭</button>
+        </div>
+
+        <div class="volume-panel">
+            <span class="volume-icon" id="vol-icon">🔊</span>
+            <input type="range" class="volume-slider" id="volume-control" min="0" max="1" step="0.01" value="0.8">
+        </div>
+    </div>
+
+    <script>
+        // Track Playlist Dataset Profiles (Hosted securely on public CDNs)
+        const playlist = [
+            {
+                title: "Lost in the City Lights",
+                artist: "Cosmo Sheldrake",
+                audioSrc: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                coverSrc: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=400&auto=format&fit=crop"
+            },
+            {
+                title: "Forest Echoes",
+                artist: "Acoustic Horizon",
+                audioSrc: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+                coverSrc: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=400&auto=format&fit=crop"
+            },
+            {
+                title: "Neon Horizon",
+                artist: "Midnight Phase",
+                audioSrc: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+                coverSrc: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=400&auto=format&fit=crop"
+            }
+        ];
+
+        // Runtime Index State Tracker
+        let trackPointer = 0;
+        let isPlaybackActive = false;
+
+        // Query Framework Selectors
+        const playerFrame = document.getElementById('player-frame');
+        const audio = document.getElementById('audio-engine');
+        const albumArt = document.getElementById('album-art');
+        const songTitle = document.getElementById('song-title');
+        const artistName = document.getElementById('artist-name');
+        
+        const playBtn = document.getElementById('play-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        
+        const timelineContainer = document.getElementById('timeline-container');
+        const progressBar = document.getElementById('progress-bar');
+        const currentTimeLabel = document.getElementById('current-time');
+        const totalDurationLabel = document.getElementById('total-duration');
+        
+        const volumeControl = document.getElementById('volume-control');
+        const volumeIcon = document.getElementById('vol-icon');
+
+        // Application Start Initialization
+        registerTracks(playlist[trackPointer]);
+        audio.volume = volumeControl.value; // Map default volume state
+
+        // Control Matrix Bindings
+        playBtn.addEventListener('click', togglePlaybackState);
+        prevBtn.addEventListener('click', skipToPreviousTrack);
+        nextBtn.addEventListener('click', skipToNextTrack);
+        
+        // Progress Bar Telemetry Engine
+        audio.addEventListener('timeupdate', updateTimelinePerformance);
+        audio.addEventListener('loadeddata', computeTrackLength);
+        audio.addEventListener('ended', skipToNextTrack); // Loop play stream chaining
+        timelineContainer.addEventListener('click', manipulatePlaybackPosition);
+        
+        // Volume Change Handlers
+        volumeControl.addEventListener('input', updateSystemVolume);
+
+        // Core Player Routine Functions
+        function registerTracks(trackObject) {
+            songTitle.textContent = trackObject.title;
+            artistName.textContent = trackObject.artist;
+            albumArt.src = trackObject.coverSrc;
+            audio.src = trackObject.audioSrc;
+            
+            // Re-assert progress metrics down to zero values
+            progressBar.style.width = '0%';
+            currentTimeLabel.textContent = "0:00";
+        }
+
+        function togglePlaybackState() {
+            if (isPlaybackActive) {
+                suspendPlayback();
+            } else {
+                initiatePlayback();
+            }
+        }
+
+        function initiatePlayback() {
+            isPlaybackActive = true;
+            playerFrame.classList.add('playing');
+            playBtn.textContent = '⏸'; // Mutate to pause icon
+            audio.play();
+        }
+
+        function suspendPlayback() {
+            isPlaybackActive = false;
+            playerFrame.classList.remove('playing');
+            playBtn.textContent = '▶'; // Mutate to play icon
+            audio.pause();
+        }
+
+        function skipToNextTrack() {
+            trackPointer = (trackPointer + 1) % playlist.length;
+            registerTracks(playlist[trackPointer]);
+            if (isPlaybackActive) initiatePlayback();
+        }
+
+        function skipToPreviousTrack() {
+            trackPointer = (trackPointer - 1 + playlist.length) % playlist.length;
+            registerTracks(playlist[trackPointer]);
+            if (isPlaybackActive) initiatePlayback();
+        }
+
+        function updateTimelinePerformance() {
+            const currentPosition = audio.currentTime;
+            const totalDuration = audio.duration || 0;
+            
+            // Calculate progress rendering metrics percentage
+            const performancePercentage = (currentPosition / totalDuration) * 100;
+            progressBar.style.width = `${performancePercentage}%`;
+            
+            currentTimeLabel.textContent = generateTimestampString(currentPosition);
+        }
+
+        function computeTrackLength() {
+            totalDurationLabel.textContent = generateTimestampString(audio.duration);
+        }
+
+        function manipulatePlaybackPosition(e) {
+            const runtimeWidth = timelineContainer.clientWidth;
+            const clickingOffsetX = e.offsetX;
+            const absoluteDuration = audio.duration;
+            
+            // Reassign audio engine currentTime based on horizontal layout math
+            audio.currentTime = (clickingOffsetX / runtimeWidth) * absoluteDuration;
+        }
+
+        function updateSystemVolume(e) {
+            const targetedVolume = e.target.value;
+            audio.volume = targetedVolume;
+            
+            // Visual state feedback based on values
+            if (targetedVolume == 0) {
+                volumeIcon.textContent = '🔇';
+            } else if (targetedVolume < 0.4) {
+                volumeIcon.textContent = '🔈';
+            } else {
+                volumeIcon.textContent = '🔊';
+            }
+        }
+
+        function generateTimestampString(secondsInput) {
+            if (isNaN(secondsInput)) return "0:00";
+            const processedMinutes = Math.floor(secondsInput / 60);
+            const processedSeconds = Math.floor(secondsInput % 60);
+            
+            // Append explicit zero formatting to strings below double digits
+            const structuredSeconds = processedSeconds < 10 ? `0${processedSeconds}
